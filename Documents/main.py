@@ -1,5 +1,5 @@
 import numpy as np
-import scipy
+from scipy import optimize
 
 ################# Neural_Network #################
 class Neural_Network(object):
@@ -60,6 +60,37 @@ class Neural_Network(object):
         W2_end = W1_end + self.hiddenLayerSize * self.outputLayerSize
         self.W2 = np.reshape(params[W1_end:W2_end], (self.hiddenLayerSize, self.outputLayerSize))
 
+    def computeGradients(self,X,y):
+        dJdW1, dJdW2 = self.costFunctionPrime(X,y)
+        return np.concatenate((dJdW1.ravel(), dJdW2.ravel()))
+
+############ Compute Numerical Gradient ############
+
+def computeNumericalGradient(N,X,y):
+    paramsInitial = N.getParams()
+    numgrad = np.zeros(paramsInitial.shape)
+    perturb = np.zeros(paramsInitial.shape)
+    e = 1.e-4
+
+    for p in range(len(paramsInitial)):
+        #Set perturbation vector
+        perturb[p] = e
+        N.setParams(paramsInitial + perturb)
+        loss2 = N.costFunction(X,y)
+
+        N.setParams(paramsInitial - perturb)
+        loss1 = N.costFunction(X,y)
+
+        #Compute numerical Gradient
+        numgrad[p] = (loss2-loss1) / (2*e)
+
+        #Return the value we changed back to zeros
+        perturb[p] = 0
+
+    #Returb Params to original value
+    N.setParams(paramsInitial)
+    return numgrad
+
 ################# trainer #################
 
 class trainer(object):
@@ -87,8 +118,7 @@ class trainer(object):
         options = {'maxiter':200, 'disp':True}
 
         #BFGS
-        _res = optimize.minimize(self.costFunctionWrapper, params0, jac=True, \
-            method='BFGS', args=(X,y), options=options, callback=self.callbackF)
+        _res = optimize.minimize(self.costFunctionWrapper, params0, jac=True, method='BFGS', args=(X,y), options=options, callback=self.callbackF)
 
         self.N.setParams(_res.x)
         self.optimizationResults = _res
@@ -127,8 +157,12 @@ cost3 = NN.costFunction(X,y)
 
 print cost1, cost2, cost3
 
+################# Numerical Gradientm Checking #################
 
+numgrad = computeNumericalGradient(NN,X,y)
+grad = NN.computeGradients(X,y)
 
+#norm(grad-numgrad) / norm(grad+numgrad)
 
 ################# Training #################
 
@@ -136,7 +170,7 @@ T = trainer(NN)
 
 T.train(X,y)
 
-plot(T.J)
-grid(1)
-xlabel('Iterations')
-ylabel('Cost')
+# plot(T.J)
+# grid(1)
+# xlabel('Iterations')
+# ylabel('Cost')
